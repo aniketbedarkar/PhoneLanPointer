@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>LAN Trackpad</title>
+    <style>
+        body {
+            margin: 0;
+            background: black;
+            color: white;
+            font-family: sans-serif;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 12px;
+            opacity: 0.6;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <div>Touch to move cursor</div>
+    <div class="hint">Tap = Left Click | Two-Finger Tap = Right Click</div>
+    <script src="script.js"></script>
+</body>
+
+</html>
