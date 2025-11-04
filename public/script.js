@@ -29,21 +29,17 @@ document.addEventListener('touchmove', (e) => {
     if (e.touches.length !== 1) return;
 
     const t = e.touches[0];
-    const dxRaw = (t.clientX - lastX) / window.innerWidth;
-    const dyRaw = (t.clientY - lastY) / window.innerHeight;
+    const shorterSide = Math.min(window.innerWidth, window.innerHeight);
+    const dxRaw = (t.clientX - lastX) / shorterSide;
+    const dyRaw = (t.clientY - lastY) / shorterSide;
 
-    // Magnitude of movement
     const dist = Math.sqrt(dxRaw * dxRaw + dyRaw * dyRaw);
 
-    // --- Dynamic sensitivity ---
-    // smaller movement => small multiplier
-    // bigger swipe => large multiplier (accelerated)
-    let multiplier;
-    if (dist < 0.002) multiplier = 0.3;         // tiny precise moves (matches libinput min)
-    else if (dist < 0.03) multiplier = 1.0;     // small moves (neutral, standard mapping)
-    else if (dist < 0.06) multiplier = 2.0;     // medium swipes (within OS max scaling)
-    else multiplier = 3.0;                      // large gestures (matches upper end of macOS/libinput)
-
+    // Smooth exponential acceleration
+    const baseSensitivity = 1.3;
+    const accelerationFactor = 5.0;
+    let multiplier = 1 + accelerationFactor * Math.pow(dist, baseSensitivity);
+    if (multiplier > 4.5) multiplier = 4.5;
 
     const dx = dxRaw * multiplier;
     const dy = dyRaw * multiplier;
