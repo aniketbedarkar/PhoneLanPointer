@@ -3,28 +3,43 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>LAN Trackpad</title>
+    <title>LAN Air Mouse</title>
     <style>
         body {
-            margin: 0;
             background: black;
             color: white;
             font-family: sans-serif;
+            text-align: center;
             height: 100vh;
-            width: 100vw;
             display: flex;
-            align-items: start;
-            justify-content: start;
             flex-direction: column;
+            justify-content: center;
+            align-items: center;
             user-select: none;
             touch-action: none;
-            opacity: 0.6;
+        }
+
+        h1 {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .hint {
+            opacity: 0.7;
+            font-size: 30px;
+            margin-top: 20px;
+        }
+
+        p {
+            font-size: larger;
         }
     </style>
 </head>
 
 <body>
-    <div>Touch to move cursor. Tap = Left Click | Two-Finger Tap = Right Click</div>
+    <h1>🖱️ LAN Air Mouse</h1>
+    <p>Tap once to start, then tilt to move the cursor</p>
+    <p class="hint">Tap again to left-click</p>
     <script src="script.js"></script>
 </body>
 

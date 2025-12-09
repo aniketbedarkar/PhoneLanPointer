@@ -1,5 +1,6 @@
 const express = require("express");
-const http = require("http");
+const fs = require("fs");
+const https = require("https");
 const WebSocket = require("ws");
 const robot = require("robotjs");
 const QRCode = require("qrcode");
@@ -9,10 +10,16 @@ const APP_PORT = 3000;
 const AUTH_TOKEN = "local-lan-secret-123";
 
 const app = express();
-const server = http.createServer(app);
+app.use(express.static("public"));
+
+// Create HTTPS server
+const server = https.createServer({
+    key: fs.readFileSync("key.pem"),
+    cert: fs.readFileSync("cert.pem")
+}, app);
+
 const wss = new WebSocket.Server({ server });
 
-app.use(express.static("public"));
 app.get("/status", (_, res) => res.send("OK"));
 
 // Utility: get LAN IP
@@ -30,61 +37,81 @@ function getLocalIP() {
 wss.on("connection", (ws) => {
     console.log("📱 Client connected");
 
-    let authorized = false;
-    let lastMoveTime = 0;
-    const MOVE_INTERVAL = 10;
+    let mouse = robot.getMousePos();
+    let mx = mouse.x;
+    let my = mouse.y;
 
-    ws.on("message", (data) => {
+    // Store previous orientation
+    let prevAlpha = 0;
+    let prevBeta = 0;
+    let prevGamma = 0;
+
+
+
+    const screen = robot.getScreenSize();
+    const SCREEN_WIDTH = screen.width;
+    const SCREEN_HEIGHT = screen.height;
+
+    const SENSITIVITY_ALPHA = 45; // horizontal movement
+    const SENSITIVITY_BETA = 30;  // vertical movement
+
+    ws.on("message", (msg) => {
         try {
-            const msg = JSON.parse(data.toString());
+            const data = JSON.parse(msg);
 
-            // --- AUTH ---
-            if (!authorized) {
-                if (msg.token === AUTH_TOKEN) {
-                    authorized = true;
-                    ws.send(JSON.stringify({ ok: true, msg: "authorized" }));
-                    console.log("✅ Client authorized");
-                } else {
-                    ws.send(JSON.stringify({ ok: false, error: "invalid token" }));
-                    ws.close();
+            if (data.type === "move") {
+                const alpha = parseFloat(data.a.toFixed(1));
+                const beta = parseFloat(data.b.toFixed(1));
+                const gamma = parseFloat(data.g.toFixed(1));
+
+                // Calculate deltas
+                // Calculate delta with circular wrapping
+                function deltaAngle(current, previous) {
+                    let delta = current - previous;
+                    // Normalize to [-180, 180]
+                    if (delta > 180) delta -= 360;
+                    if (delta < -180) delta += 360;
+                    return delta;
                 }
-                return;
-            }
 
-            // --- MOVE ---
-            if (msg.type === "move") {
-                const now = Date.now();
-                if (now - lastMoveTime < MOVE_INTERVAL) return;
-                lastMoveTime = now;
+                const deltaAlpha = deltaAngle(alpha, prevAlpha);
+                const deltaBeta = beta - prevBeta;
 
-                const screen = robot.getScreenSize();
-                const dx = msg.dx * screen.width;
-                const dy = msg.dy * screen.height;
-                const mouse = robot.getMousePos();
-                robot.moveMouse(mouse.x + dx, mouse.y + dy);
-            }
+                // Update mouse position relative to previous
+                mx -= deltaAlpha * SENSITIVITY_ALPHA;
+                my -= deltaBeta * SENSITIVITY_BETA;
 
-            // --- CLICK ---
-            else if (msg.type === "click") {
-                if (msg.event === "left") robot.mouseClick("left");
-                else if (msg.event === "right") robot.mouseClick("right");
-            }
+                // Clamp to screen bounds
+                mx = Math.max(0, Math.min(SCREEN_WIDTH, mx));
+                my = Math.max(0, Math.min(SCREEN_HEIGHT, my));
 
-            // --- SCROLL (optional later) ---
-            else if (msg.type === "scroll") {
-                robot.scrollMouse(msg.sx * 100, msg.sy * 100);
+                // Move mouse
+                robot.moveMouse(Math.floor(mx), Math.floor(my));
+
+                // // Continuous server console output
+                // process.stdout.write(
+                //     `\rα: ${alpha} | β: ${beta} | γ: ${gamma} | x:${Math.floor(mx)} y:${Math.floor(my)}`
+                // );
+
+                // Store current orientation for next delta calculation
+                prevAlpha = alpha;
+                prevBeta = beta;
+                prevGamma = gamma;
+            } else if (data.type === "click") {
+                robot.mouseClick(data.button || "left");
             }
-        } catch (e) {
-            console.error("⚠️ Bad message", e);
+        } catch (err) {
+            console.error("Invalid message:", err);
         }
     });
 
     ws.on("close", () => console.log("❌ Client disconnected"));
 });
 
+
 server.listen(APP_PORT, async () => {
     const ip = getLocalIP();
-    const url = `http://${ip}:${APP_PORT}`;
+    const url = `https://${ip}:${APP_PORT}`;
     console.log(`🖥️  Server running at ${url}`);
 
     // Generate QR in terminal
